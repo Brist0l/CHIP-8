@@ -26,21 +26,31 @@ typedef struct _registers{
 	unsigned _BitInt(12) PC; // Program counter register 
 }_registers;
 
-unsigned char stack[48]; // 48 bytes worth of stack
-// 4096 bytes worth of stack . first 512(0x200) bytes are reserved i.e. the opcodes need to be loaded
-// from 0x200.
+// 48 bytes worth of stack
+unsigned char stack[48]; 
+/* 4096 bytes worth of memory . first 512(0x200) bytes are reserved i.e. the opcodes need to be loaded
+from 0x200.*/
 unsigned char memory[0x1000]; 
 
 // Both the timers need to be decremented by 1 , 60 times per sec (i.e. 60 Hz)
 unsigned char delay_timer;
 unsigned char sound_timer; // It makes the computer "beep" as long as it's above 0
 
-
-void font_set();
-void memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end);
-void _fillopcode();
 void logmsg(const char* function_name,bool start,bool debug_flag);
-void fetch(_registers registers);
+void _fontset();
+void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end);
+void _fillopcode();
+unsigned short fetch(_registers registers);
+
+void logmsg(const char* function_name,bool start,bool debug_flag){
+	if(!debug_flag)
+		return;
+
+	if(start)
+		printf("\n=====function %s START=====\n",function_name);
+	else
+		printf("=====function %s END=====\n",function_name);
+}
 
 /* Font:
 It ranged from 0-F and it was stored in the reserved memory (anywhere in it is fine but conventionally it
@@ -70,7 +80,7 @@ Hex:
 0xF0
 */
 
-void font_set(){
+void _fontset(){
 	unsigned char fonts[16][5] = { 
 		{0xF0, 0x90, 0x90, 0x90, 0xF0}, // 0
 		{0x20, 0x60, 0x20, 0x20, 0x70}, // 1
@@ -92,7 +102,7 @@ void font_set(){
 
 	int pos = 0x050;
 	
-	logmsg("font_set",true,debug_flag);
+	logmsg("_fontset",true,debug_flag);
 
 	for(int i = 0; i < 16; i++){
 		for(int j = 0;j < 5;j++){
@@ -103,17 +113,17 @@ void font_set(){
 		}
 	}
 
-	logmsg("font_set",false,debug_flag);
+	logmsg("_fontset",false,debug_flag);
 }
 
 // View the memory locations from a starting address to an ending address
-void memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end){
-	logmsg("memoryframe",true,debug_flag);
+void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end){
+	logmsg("_memoryframe",true,debug_flag);
 	if(debug_flag)
 		for(unsigned _BitInt(12) i = start; i < end;i++)
 			if(memory[i] != 0)
 				printf("val is: %02x at 0x%04x\n",(int) memory[i],(int) i);
-	logmsg("memoryframe",false,debug_flag);
+	logmsg("_memoryframe",false,debug_flag);
 }
 
 void _fillopcode(){
@@ -123,28 +133,33 @@ void _fillopcode(){
 	memory[0x201] = 0xEE;
 }
 
-void fetch(_registers registers){
+unsigned short fetch(_registers registers){
+	logmsg("fetch",true,debug_flag);
 	_fillopcode();
-	if(debug_flag)
-		printf("The opcode is:%02X%02X (decimal equivalent:%03d-%03d) \n",memory[registers.PC],memory[registers.PC+1],memory[registers.PC],memory[registers.PC+1]);
-	registers.PC += 2;	
-	printf("The PC is now:%x\n",(int)registers.PC);
+
+	unsigned short opcode = 0x0;
+	unsigned short MSB = memory[registers.PC];
+	MSB <<= 8; // shifting the number into MSB side 
+	unsigned short LSB = memory[registers.PC + 1];
+	opcode = opcode | MSB | LSB; 
+
+	registers.PC += 2; // Increment PC by 2 cuz 2 consequitive bytes of memory has been accessed	
+			   
+	if(debug_flag){
+		printf("The opcode is:%04X(dec equivalent:%06d and bin is %016b)\n",opcode,opcode,opcode);
+		printf("The PC is now:%x\n",(int)registers.PC);
+	}
+
+	logmsg("fetch",false,debug_flag);
+
+	return opcode;
 }
 
-void logmsg(const char* function_name,bool start,bool debug_flag){
-	if(!debug_flag)
-		return;
-
-	if(start)
-		printf("=====function %s START=====\n",function_name);
-	else
-		printf("=====function %s END=====\n",function_name);
-}
 
 int main(){
 	_registers registers;
 	registers.PC = 0x200; // starting from the unreserved section
-	font_set();
-	memoryframe(0x050,0x200);	
+	_fontset();
+	_memoryframe(0x050,0x200);	
 	fetch(registers);
 }
