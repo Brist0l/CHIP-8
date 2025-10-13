@@ -2,6 +2,8 @@
 #include<stdio.h>
 #include<stdbool.h>
 
+#include"debug.h"
+
 bool debug_flag = true;
 
 // CHIP-8 has 16 8-bit registers (V0 - VF)  
@@ -36,21 +38,8 @@ unsigned char memory[0x1000];
 unsigned char delay_timer;
 unsigned char sound_timer; // It makes the computer "beep" as long as it's above 0
 
-void logmsg(const char* function_name,bool start,bool debug_flag);
 void _fontset();
-void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end);
-void _fillopcode();
 const unsigned short fetch(_registers registers);
-
-void logmsg(const char* function_name,bool start,bool debug_flag){
-	if(!debug_flag)
-		return;
-
-	if(start)
-		printf("\n=====function %s START=====\n",function_name);
-	else
-		printf("=====function %s END=====\n",function_name);
-}
 
 /* Font:
 It ranged from 0-F and it was stored in the reserved memory (anywhere in it is fine but conventionally it
@@ -114,23 +103,6 @@ void _fontset(){
 	}
 
 	logmsg("_fontset",false,debug_flag);
-}
-
-// View the memory locations from a starting address to an ending address
-void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end){
-	logmsg("_memoryframe",true,debug_flag);
-	if(debug_flag)
-		for(unsigned _BitInt(12) i = start; i < end;i++)
-			if(memory[i] != 0)
-				printf("val is: %02x at 0x%04x\n",(int) memory[i],(int) i);
-	logmsg("_memoryframe",false,debug_flag);
-}
-
-void _fillopcode(){
-	// Filling it with a const opcode , 00EE => basically it's C's `return`
-	// So all the opcodes are 2 bytes long and it's stored in big-endian format 
-	memory[0x200] = 0x00;
-	memory[0x201] = 0xE1;
 }
 
 const unsigned short fetch(_registers registers){
