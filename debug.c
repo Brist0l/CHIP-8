@@ -28,5 +28,5 @@ void _fillopcode(){
 	// Filling it with a const opcode , 00EE => basically it's C's `return`
 	// So all the opcodes are 2 bytes long and it's stored in big-endian format 
 	memory[0x200] = 0x00;
-	memory[0x201] = 0xE1;
+	memory[0x201] = 0xE0;
 }

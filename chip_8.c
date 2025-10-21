@@ -1,8 +1,10 @@
 #include<string.h>
 #include<stdio.h>
 #include<stdbool.h>
+#include<stdlib.h>
 
 #include"debug.h"
+#include"display.h"
 
 bool debug_flag = true;
 
@@ -183,9 +185,11 @@ void execute(const unsigned short opcode){
 			printf("Welcome to case 0 bitch\n");
 			switch(fourth_nibble){
 				case 0:
+					printf("Instruction: 00E0 => Clears the screen\n");
 					printf("Clearing screen\n");
 					break;
 				case 0xE:
+					printf("Instruction: 00EE => Returns from the subroutine\n");
 					printf("returing\n");
 					break;
 				default:
@@ -265,4 +269,21 @@ int main(){
 	_fontset();
 	_memoryframe(0x050,0x200);	
 	execute(fetch(registers));
+	//printf("%d\n",EXIT_FAILURE);
+	bool exit_status = EXIT_FAILURE;
+	struct Game *g = NULL;
+
+	//printf("game: %p\n",g);
+
+	if(game_new(&g)){
+		//printf("game: %p\n",g);
+		game_run(g);
+		exit_status = EXIT_SUCCESS;
+	}
+
+	game_free(&g);
+	//printf("game: %p\n",g);
+	//printf("%d\n",EXIT_SUCCESS);
+
+	return exit_status;
 }
