@@ -1,5 +1,5 @@
 #include<SDL3/SDL.h> 
-#include<SDL3/SDL_main.h>
+#include<SDL3/SDL_main.h> 
 #include<stdbool.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -24,7 +24,7 @@ bool game_new(struct Game **game);
 void game_free(struct Game **game);
 void game_events(struct Game *g);
 void game_draw(struct Game *g);
-void game_run(struct Game *g);
+bool clear_screen(struct Game *g);
 
 bool game_init_sdl(struct Game *g){
 	//printf("%d\n",SDL_FLAGS);
@@ -133,13 +133,30 @@ void game_events(struct Game *g){
 }
 
 void game_draw(struct Game *g){
-	int display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0};
-    	display[5][5] = 1; // Just one pixel to test
+	bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0};
+    //	display[5][5] = 1; // Just one pixel to test
+	int draw[5] = {0xF0,0x80,0xF0,0x80,0x80};
 
-    	SDL_SetRenderDrawColor(g->renderer, 255, 0, 0, 255);
+	int bit_mask = 1;
+	int num_count = 0;
+
+	for(int i = 0;i < 5;i++){
+		printf("Incremented\n");
+		for(int j = 0;j < 8;j++){
+			printf("Num is : %b\n",draw[num_count]);
+			printf("Shifted num is : %08b\n",draw[num_count] >> (7 - j));
+			printf("=> Putting %d at %dx%d\n",(draw[num_count] >> (7 - j)) & bit_mask,i,j);
+			
+			display[i][j] = (draw[num_count] >> (7 - j)) & bit_mask;
+
+		}
+		num_count++;
+	}	
+	
+    	SDL_SetRenderDrawColor(g->renderer, 0, 0, 0, 255);
     	SDL_RenderClear(g->renderer); // clear the current rendering target with the drawing colour
 
-    	SDL_SetRenderDrawColor(g->renderer, 55, 255, 255, 255);
+    	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255);
   	for(int y = 0; y < WINDOW_HEIGHT; y++) {
         	for(int x = 0; x < WINDOW_WIDTH; x++) {
             		if (display[y][x]) {
@@ -152,12 +169,12 @@ void game_draw(struct Game *g){
     SDL_RenderPresent(g->renderer); // update the rendering content
 }
 
-void game_run(struct Game *g){
-	while(g->is_running){
-		game_events(g);
-		game_draw(g);
-		SDL_Delay(1/60); // i.e. 60Hz
 
-	}
+bool clear_screen(struct Game *g){
+	printf("Entered the clear_screen");
+    	SDL_SetRenderDrawColor(g->renderer, 0, 0, 0, 255);
+    	SDL_RenderClear(g->renderer);
+    	SDL_RenderPresent(g->renderer); // update the rendering content
+	
+	return true;
 }
-

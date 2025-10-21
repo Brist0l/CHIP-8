@@ -12,9 +12,12 @@ struct Game{
 	bool is_running;
 };
 
+bool game_init_sdl(struct Game *g);
+bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
-void game_run(struct Game *g);
 void game_free(struct Game **game);
+void game_events(struct Game *g);
 void game_draw(struct Game *g);
+bool clear_screen(struct Game *g);
 
 #endif
