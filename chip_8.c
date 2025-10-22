@@ -60,6 +60,8 @@ Hex:
 */
 
 void _fontset(){
+	logmsg("_fontset",true,debug_flag);
+
 	unsigned char fonts[16][5] = { 
 		{0xF0, 0x90, 0x90, 0x90, 0xF0}, // 0
 		{0x20, 0x60, 0x20, 0x20, 0x70}, // 1
@@ -81,7 +83,6 @@ void _fontset(){
 
 	int pos = 0x050;
 	
-	logmsg("_fontset",true,debug_flag);
 
 	for(int i = 0; i < 16; i++){
 		for(int j = 0;j < 5;j++){
@@ -97,7 +98,7 @@ void _fontset(){
 
 const unsigned short fetch(_registers *registers){
 	logmsg("fetch",true,debug_flag);
-	_fillopcode();
+	//_fillopcode();
 
 	unsigned short opcode = 0x0;
 	unsigned short MSB = memory[registers->PC];
@@ -106,10 +107,10 @@ const unsigned short fetch(_registers *registers){
 	opcode = opcode | MSB | LSB; 
 
 	registers->PC += 2; // Increment PC by 2 cuz 2 consequitive bytes of memory has been accessed	
-			   
+
 	if(debug_flag){
 		printf("The opcode is:%04X(dec equivalent:%06d and bin is %016b)\n",opcode,opcode,opcode);
-		printf("The PC is now:%x\n",(int)registers->PC);
+		printf("The PC value after incrementing is now:%x\n",(int)registers->PC);
 	}
 
 	logmsg("fetch",false,debug_flag);
@@ -136,9 +137,11 @@ void execute(const unsigned short opcode,_registers *registers){
 	unsigned short second_nibble = 0x0F00;
 	unsigned short third_nibble = 0x00F0;
 	unsigned short fourth_nibble = 0x000F;
+	unsigned short N;
 	unsigned short NN = 0x00FF;
 	unsigned short NNN = 0x0FFF;
-	int register_num = second_nibble;
+	unsigned short X; 
+	unsigned short Y;
 
 	if(debug_flag){
 		printf("First nibble before: %016b(%X)\n",first_nibble,first_nibble);
@@ -158,8 +161,11 @@ void execute(const unsigned short opcode,_registers *registers){
 	third_nibble &= opcode; 
 	third_nibble >>= 4;
 	fourth_nibble &= opcode; 
+	N = fourth_nibble;
 	NN &= opcode;
 	NNN &= opcode;
+	X = second_nibble;
+	Y = third_nibble;
 
 	if(debug_flag){
 		printf("First nibble after: %016b(%X)\n",first_nibble,first_nibble);
@@ -200,7 +206,7 @@ void execute(const unsigned short opcode,_registers *registers){
 			printf("Welcome to case 1\n");
 			registers->PC = NNN;
 			if(debug_flag)
-				printf("Register value is %X\n",(int)registers->PC);
+				printf("PC's value is 0x%X\n",(int)registers->PC);
 
 			break;
 		case 0x2:
@@ -221,10 +227,10 @@ void execute(const unsigned short opcode,_registers *registers){
 			 * 6XNN : Sets Vx to NN */
 			printf("Welcome to case 6\n");
 
-			registers->V[register_num] = NN;
+			registers->V[X] = NN;
 
 			if(debug_flag)
-				printf("Register value is 0x%X\n",registers->V[register_num]);
+				printf("Register %d's value is 0x%X\n",X,registers->V[X]);
 
 			break;
 		case 0x7:
@@ -232,29 +238,29 @@ void execute(const unsigned short opcode,_registers *registers){
 			 * 7XNN : Adds Vx to NN */
 			printf("Welcome to case 7\n");
 
-			registers->V[register_num] += NN;
+			registers->V[X] += NN;
 
 			if(debug_flag)
-				printf("Register value is 0x%X\n",registers->V[register_num]);
+				printf("Register value is 0x%X\n",registers->V[X]);
 
 			break;
 		case 0x8:
-			printf("Welcome to case 0 bitch\n");
 			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0x9:
-			printf("Welcome to case 0 bitch\n");
 			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0xA:
 			/* Valid instructions:
 			 * ANNN : Sets I to the address NNN.*/
-			printf("Welcome to case A\n");
 
-			registers->I += NNN;
-
-			if(debug_flag)
+			if(debug_flag){
+				printf("Welcome to case A\n");
 				printf("Register value is 0x%X\n",(int)registers->I);
+				printf("mem at the location is:%X\n",memory[registers->I]);
+			}
+
+			registers->I = NNN;
 
 			break;
 		case 0xB:
@@ -264,7 +270,23 @@ void execute(const unsigned short opcode,_registers *registers){
 			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0xD:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * DXYN : Draw at coordinate (Vx,Vy) .*/
+
+			if(debug_flag){
+				printf("Welcome to case D\n");
+				printf("memory[I] has : %X\n",memory[(int)registers->I]);
+				printf("Height is %d\n",N);
+				for(int i = 0; i < N;i++)
+					printf("=>%08b\n",memory[(registers->I) +i]);
+			}
+
+			int x_coor = registers->V[X];
+			int y_coor = registers->V[Y];
+
+			for(int i = 0; i < N;i++)
+				draw(g,x_coor,y_coor + i,memory[(registers->I) + i]);
+
 			break;
 		case 0xE:
 			printf("First nibble after: %016b\n",first_nibble);
@@ -284,12 +306,49 @@ void execute(const unsigned short opcode,_registers *registers){
 void game_run(struct Game *g , _registers *registers){
 	while(g->is_running){
 		game_events(g);
-		game_draw(g);
+		//game_draw(g);
 		execute(fetch(registers),registers);
-		if(registers-> PC == 0x202)
+		if(registers-> PC == 0x333)
 			g->is_running = false;
 		SDL_Delay(1000); // i.e. 60Hz
 	}
+}
+
+void display_ROM(FILE* rom){
+	int data;
+	int j = 0;
+	printf("The Instructions of the .ch8 file are:\n");
+	
+	while((data = fgetc(rom)) != EOF){
+		printf("%02X",(unsigned char)data);
+		if(++j == 2){
+			printf("\n");
+			j= 0;
+		}
+	}
+
+	fseek(rom,0,SEEK_SET);
+	printf("Seeked to %ld\n",ftell(rom));
+}
+
+bool load_ROM(const char *name){
+	FILE* rom;
+	int data;
+	unsigned int i = 0x200;
+
+	rom = fopen(name,"rb");
+	if(rom == NULL){
+		fprintf(stderr,"Couldn't read %s\n",name);
+		return false;
+	}
+	
+	display_ROM(rom);
+
+	while((data = fgetc(rom)) != EOF)
+		memory[i++] = (unsigned char) data;
+
+	fclose(rom);
+	return true;
 }
 
 int main(){
@@ -301,6 +360,11 @@ int main(){
 	bool exit_status = EXIT_FAILURE;
 
 	//printf("game: %p\n",g);
+	
+	if(!(load_ROM("ROMs/IBM_Logo.ch8")))
+		return -1;
+
+	_memoryframe(0x200,0x300);
 
 	if(game_new(&g)){
 		printf("game: %p\n",g);

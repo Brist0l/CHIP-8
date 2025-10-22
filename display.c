@@ -141,11 +141,11 @@ void game_draw(struct Game *g){
 	int num_count = 0;
 
 	for(int i = 0;i < 5;i++){
-		printf("Incremented\n");
+		//printf("Incremented\n");
 		for(int j = 0;j < 8;j++){
-			printf("Num is : %b\n",draw[num_count]);
-			printf("Shifted num is : %08b\n",draw[num_count] >> (7 - j));
-			printf("=> Putting %d at %dx%d\n",(draw[num_count] >> (7 - j)) & bit_mask,i,j);
+			//printf("Num is : %b\n",draw[num_count]);
+			//printf("Shifted num is : %08b\n",draw[num_count] >> (7 - j));
+			//printf("=> Putting %d at %dx%d\n",(draw[num_count] >> (7 - j)) & bit_mask,i,j);
 			
 			display[i][j] = (draw[num_count] >> (7 - j)) & bit_mask;
 
@@ -169,6 +169,50 @@ void game_draw(struct Game *g){
     SDL_RenderPresent(g->renderer); // update the rendering content
 }
 
+void draw(struct Game *g,int x,int y,int data){
+	/*The natural ways of rendering pixels is to first traverse the height and then the width.
+	 *
+	 *			(x)
+	 *              <-------width-------->
+	 *            ^ |~~~~~~~~~~~~~~~~~~~~|
+	 *	      |	|		     |
+	 *	      | |		     |
+	 *   (y) height |       display	     |	     
+	 *	      | |                    |
+	 *	      | |                    |
+	 *	      v |~~~~~~~~~~~~~~~~~~~~|
+	 *
+	 * So i.e. I will first go down and then go right. The top left is (0,0) and the bottom right
+	 * is (max_x,max_y). Hence the display is defined in terms of display[height][widht] and the 
+	 * pixels in display[y][x].
+	 */
+
+	static bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0}; 
+    	//display[y][x] = 1;
+
+	int bit_mask = 1;
+	int j = 0;
+
+	for(int _x = x;_x <= x + 8;_x++){
+		printf("Num is : %b\n",data);
+		printf("Shifted num is : %08b\n",data >> (7 - j));
+		printf("=> Putting %d at %dx%d\n",(data >> (7 - j)) & bit_mask,y,_x);
+
+		display[y][_x] ^= ((data >> (7 - j++)) & bit_mask);
+	}
+
+    	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255); // White colour
+  	for(int y = 0; y < WINDOW_HEIGHT; y++) {
+        	for(int x = 0; x < WINDOW_WIDTH; x++) {
+            		if (display[y][x]) {
+                		SDL_FRect rect = {x * SCALE, y * SCALE, SCALE, SCALE};
+                		SDL_RenderFillRect(g->renderer, &rect);
+            }
+        }
+    }
+
+    SDL_RenderPresent(g->renderer); // update the rendering content
+}
 
 bool clear_screen(struct Game *g){
 	printf("Entered the clear_screen");
