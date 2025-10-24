@@ -40,12 +40,12 @@ void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end){
 void _fillopcode(){
 	// Filling it with a const opcode , 00EE => basically it's C's `return`
 	// So all the opcodes are 2 bytes long and it's stored in big-endian format 
-	memory[0x200] = 0x61;
+	memory[0x200] = 0x60;
 	memory[0x201] = 0x05;
-	memory[0x202] = 0x62;
-	memory[0x203] = 0x05;
-	memory[0x204] = 0x00;
-	memory[0x205] = 0xE0;
+	memory[0x202] = 0x61;
+	memory[0x203] = 0x0a;
+	memory[0x204] = 0x80;
+	memory[0x205] = 0x15;
 	memory[0x206] = 0xD1;
 	memory[0x207] = 0x2F;
 }

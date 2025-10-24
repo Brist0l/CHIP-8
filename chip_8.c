@@ -9,8 +9,11 @@
 bool debug_flag = true;
 
 // CHIP-8 has 16 8-bit registers (V0 - VF)  
+// Registers are just "registers" , there are no "signed" or "unsigned" registers. The signed/unsigned
+// is a software level consturct. All registers are "technically" unsigned because they just hold the 
+// data and don't dictate what's the orientation of the data(i.e. if it's 2's compliment or not).
 typedef struct _registers{ 
-	char V[0xF];
+	uint8_t V[0xF + 1]; // A total of 16 registers (15 +1)
 	unsigned _BitInt(12) I; // Address register 
 	unsigned _BitInt(12) PC; // Program counter register 
 }_registers;
@@ -98,7 +101,6 @@ void _fontset(){
 
 const unsigned short fetch(_registers *registers){
 	logmsg("fetch",true,debug_flag);
-	//_fillopcode();
 
 	unsigned short opcode = 0x0;
 	unsigned short MSB = memory[registers->PC];
@@ -181,75 +183,324 @@ void execute(const unsigned short opcode,_registers *registers){
 			/* Valid instructions:
 			 * 00E0 => Clears the screen
 			 * 00EE => Returns from the subroutine*/
+			
+			if(debug_flag)
+				printf("Welcome to case 0\n");
 
-			printf("Welcome to case 0\n");
 			switch(fourth_nibble){
-				case 0:
-					printf("Instruction: 00E0 => Clears the screen\n");
+				case 0x0:
+					if(debug_flag)
+						printf("Clearing the screen\n");
 					clear_screen(g);
-					printf("Clearing screen\n");
 					break;
+
 				case 0xE:
 					printf("Instruction: 00EE => Returns from the subroutine\n");
 					printf("returing\n");
 					break;
+
 				default:
 					printf("Bad instruction\n");
 			}
 			
-			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0x1:
 			/* Valid instructions:
 			 * 1NNN => Jumps to address NNN */
 
-			printf("Welcome to case 1\n");
-			registers->PC = NNN;
-			if(debug_flag)
+			if(debug_flag){
+				printf("Welcome to case 1\n");
 				printf("PC's value is 0x%X\n",(int)registers->PC);
+			}
+			registers->PC = NNN;
 
 			break;
 		case 0x2:
 			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0x3:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 3XNN => Compares Vx and NN (Vx == NN), if true then it 
+			 * skips next instruction */
+
+			if(debug_flag){
+				printf("Welcome to case 3\n");
+				printf("PC's value before is 0x%X\n",(int)registers->PC);
+			}
+			if(registers->V[X] == NN)
+				registers->PC += 2;
+
+			if(debug_flag)
+				printf("PC's value after is 0x%X\n",(int)registers->PC);
+
 			break;
 		case 0x4:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 4XNN => Compares Vx and NN (Vx != NN), if true then 
+			 * it skips next instruction */
+
+			if(debug_flag){
+				printf("Welcome to case 4\n");
+				printf("PC's value before is 0x%X\n",(int)registers->PC);
+			}
+			if(registers->V[X] != NN)
+				registers->PC += 2;
+
+			if(debug_flag)
+				printf("PC's value after is 0x%X\n",(int)registers->PC);
+
 			break;
 		case 0x5:
-			printf("Welcome to case 0 bitch\n");
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 5XY0 => Compares Vx and Vy (Vx == Vy), if true then 
+			 * it skips next instruction */
+
+			if(debug_flag){
+				printf("Welcome to case 5\n");
+				printf("PC's value before is 0x%X\n",(int)registers->PC);
+			}
+			if(registers->V[X] == registers->V[Y])
+				registers->PC += 2;
+
+			if(debug_flag)
+				printf("PC's value after is 0x%X\n",(int)registers->PC);
+
 			break;
 		case 0x6:
 			/* Valid instructions:
 			 * 6XNN : Sets Vx to NN */
-			printf("Welcome to case 6\n");
+
+			if(debug_flag){
+				printf("Welcome to case 6\n");
+				printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+			}
 
 			registers->V[X] = NN;
 
 			if(debug_flag)
-				printf("Register %d's value is 0x%X\n",X,registers->V[X]);
+				printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
 
 			break;
 		case 0x7:
 			/* Valid instructions:
 			 * 7XNN : Adds Vx to NN */
-			printf("Welcome to case 7\n");
+
+			if(debug_flag){
+				printf("Welcome to case 7\n");
+				printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+			}
 
 			registers->V[X] += NN;
 
 			if(debug_flag)
-				printf("Register value is 0x%X\n",registers->V[X]);
+				printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+
 
 			break;
 		case 0x8:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 8XY0 => Set's Vx equal to Vy (Vx = Vy)
+			 * 8XY1 => Set's Vx equal to Vx OR Vy (Vx |= Vy)
+			 * 8XY2 => Set's Vx equal to Vx AND Vy (Vx &= Vy)
+			 * 8XY3 => Set's Vx equal to Vx XOR Vy (Vx ^= Vy)
+			 * 8XY4 => Adds Vy  to Vx,if overflow then VF = 1 else VF = 0 (Vx += Vy)
+			 * 8XY5 => Subtracts Vx from Vy,if underflow then VF = 0 else VF = 1 (Vx -= Vy)
+			 * 8XY6 => Shifts Vx to the right by 1 (Vx >>= 1) , stores LSB before shifting
+			 * 	   into Vf
+			 * 8XY7 => Subtracts Vy from Vx,if underflow then VF = 0 else VF = 1
+			 *	   (Vx= Vy - Vx) 
+			 * 8XYE => Shifts Vx to the left by 1 (Vx <<= 1) , sets VF = 1 if MSB of Vx
+			 * 	   prior to shifting was present , else VF = 0*/
+
+			
+			if(debug_flag)
+				printf("Welcome to case 8\n");
+
+			switch(fourth_nibble){
+				case 0x0:
+					if(debug_flag){
+						printf("Welcome to case 8XY0\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+
+					registers->V[X] = registers->V[Y];
+					
+					if(debug_flag)
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+
+					break;
+
+				case 0x1:
+					if(debug_flag){
+						printf("Welcome to case 8XY1\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+
+					registers->V[X] |= registers->V[Y];
+
+					if(debug_flag)
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+
+					break;
+				case 0x2:
+					if(debug_flag){
+						printf("Welcome to case 8XY2\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+
+					registers->V[X] &= registers->V[Y];
+
+					if(debug_flag)
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+
+					break;
+
+				case 0x3:
+					if(debug_flag){
+						printf("Welcome to case 8XY3\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+
+					registers->V[X] ^= registers->V[Y];
+
+					if(debug_flag)
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+
+					break;
+
+				case 0x4:
+					if(debug_flag){
+						printf("Welcome to case 8XY4\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+						
+					if(registers->V[X] + registers->V[Y] >= 255)
+							registers->V[0xF] = 1;
+					else
+							registers->V[0xF] = 0;
+
+					registers->V[X] += registers->V[Y];
+
+					if(debug_flag){
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+						printf("Register F's value after is 0x%X\n",registers->V[0xF]);
+					}
+
+					break;
+
+				case 0x5:
+					if(debug_flag){
+						printf("Welcome to case 8XY5\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+						printf("Register %d's value before is 0x%X\n",Y,registers->V[Y]);
+					}
+
+					if(registers->V[X] >= registers->V[Y])
+							registers->V[0xF] = 1;
+					else
+							registers->V[0xF] = 0; // underflow
+					
+					registers->V[X] = registers->V[X] - registers->V[Y];
+
+					if(debug_flag){
+						printf("Register %d's value after is 0x%X(%d)\n",X,registers->V[X],registers->V[X]);
+						printf("Register %d's value after is 0x%X\n",Y,registers->V[Y]);
+						printf("Register F's value after is 0x%X\n",registers->V[0xF]);
+					}
+
+					break;
+
+				case 0x6:
+					if(debug_flag){
+						printf("Welcome to case 8XY6\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+					
+					unsigned short last_bit = 0x1;
+					last_bit &= registers->V[X];
+
+					registers->V[X] >>= 1;
+
+					if(last_bit == 1)
+						registers->V[0xF] =1;
+					else
+						registers->V[0xF] =0;
+
+					if(debug_flag){
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+						printf("Register F's value after is 0x%X\n",registers->V[0xF]);
+					}
+
+					break;
+
+
+				case 0x7:
+					if(debug_flag){
+						printf("Welcome to case 8XY7\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+
+					if(registers->V[Y] >= registers->V[X])
+							registers->V[0xF] = 1;
+					else
+							registers->V[0xF] = 0;
+
+					registers->V[X] = registers->V[Y] - registers->V[X];
+
+					if(debug_flag){
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+						printf("Register F's value after is 0x%X\n",registers->V[0xF]);
+					}
+
+					break;
+
+				case 0xE:
+					if(debug_flag){
+						printf("Welcome to case 8XYE\n");
+						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
+					}
+					
+					unsigned short first_bit = 0x40;
+					first_bit &= registers->V[X];
+
+					registers->V[X] <<= 1;
+
+					if(first_bit == 1)
+						registers->V[0xF] =1;
+					else
+						registers->V[0xF] =0;
+
+					if(debug_flag){
+						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
+						printf("Register F's value after is 0x%X\n",registers->V[0xF]);
+					}
+
+					break;
+
+				default:
+					printf("Bad instruction\n");
+					break;
+			}
+
 			break;
+
 		case 0x9:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 9XY0 => Compares Vx and Vy (Vx != NN), if true then it 
+			 * skips next instruction */
+
+			if(debug_flag){
+				printf("Welcome to case 9\n");
+				printf("PC's value before is 0x%X\n",(int)registers->PC);
+			}
+			if(registers->V[X] != registers->V[Y])
+				registers->PC += 2;
+
+			if(debug_flag)
+				printf("PC's value after is 0x%X\n",(int)registers->PC);
+
 			break;
+
 		case 0xA:
 			/* Valid instructions:
 			 * ANNN : Sets I to the address NNN.*/
@@ -310,7 +561,7 @@ void game_run(struct Game *g , _registers *registers){
 		execute(fetch(registers),registers);
 		if(registers-> PC == 0x333)
 			g->is_running = false;
-		SDL_Delay(1000); // i.e. 60Hz
+		SDL_Delay(100); // i.e. 60Hz
 	}
 }
 
@@ -361,7 +612,8 @@ int main(){
 
 	//printf("game: %p\n",g);
 	
-	if(!(load_ROM("ROMs/IBM_Logo.ch8")))
+	//_fillopcode();
+	if(!(load_ROM("ROMs/test_opcode_corax_plus.ch8")))
 		return -1;
 
 	_memoryframe(0x200,0x300);
