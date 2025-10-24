@@ -18,11 +18,11 @@ typedef struct _registers{
 	unsigned _BitInt(12) PC; // Program counter register 
 }_registers;
 
-// 48 bytes worth of stack
-unsigned char stack[48]; 
+// 16 2-bytes worth of stack
+unsigned short stack[16]; 
 /* 4096 bytes worth of memory . first 512(0x200) bytes are reserved i.e. the opcodes need to be loaded
 from 0x200.*/
-unsigned char memory[0x1000]; 
+uint8_t memory[0x1000]; 
 
 // Both the timers need to be decremented by 1 , 60 times per sec (i.e. 60 Hz)
 unsigned char delay_timer;
@@ -144,6 +144,7 @@ void execute(const unsigned short opcode,_registers *registers){
 	unsigned short NNN = 0x0FFF;
 	unsigned short X; 
 	unsigned short Y;
+	static int s =0;
 
 	if(debug_flag){
 		printf("First nibble before: %016b(%X)\n",first_nibble,first_nibble);
@@ -190,17 +191,22 @@ void execute(const unsigned short opcode,_registers *registers){
 			switch(fourth_nibble){
 				case 0x0:
 					if(debug_flag)
-						printf("Clearing the screen\n");
+						printf("Welcome to case 00E0\n");
 					clear_screen(g);
 					break;
 
 				case 0xE:
-					printf("Instruction: 00EE => Returns from the subroutine\n");
-					printf("returing\n");
-					break;
+					if(debug_flag){
+						printf("Welcome to case 00E0\n");
+						printf("PC's value before is 0x%X\n",(int)registers->PC);
+					}
 
-				default:
-					printf("Bad instruction\n");
+					registers->PC = stack[--s];	
+
+					if(debug_flag)
+						printf("PC's value after is 0x%X\n",(int)registers->PC);
+					
+					break;
 			}
 			
 			break;
@@ -216,8 +222,22 @@ void execute(const unsigned short opcode,_registers *registers){
 
 			break;
 		case 0x2:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * 2NNN => Calls to address NNN. The difference between calling and jumping
+			 *         is that in call the address of the current PC will be pushed in 
+			 *         the stack and when the function ends (i.e. returned) the value
+			 *         will be popped of the stack*/
+
+			if(debug_flag){
+				printf("Welcome to case 2NNN\n");
+				printf("PC's value is 0x%X\n",(int)registers->PC);
+			}
+
+			stack[s++] = registers->PC;
+			registers->PC = NNN;
+
 			break;
+
 		case 0x3:
 			/* Valid instructions:
 			 * 3XNN => Compares Vx and NN (Vx == NN), if true then it 
@@ -507,11 +527,16 @@ void execute(const unsigned short opcode,_registers *registers){
 
 			if(debug_flag){
 				printf("Welcome to case A\n");
-				printf("Register value is 0x%X\n",(int)registers->I);
+				printf("Register value before is 0x%X\n",(int)registers->I);
 				printf("mem at the location is:%X\n",memory[registers->I]);
 			}
 
 			registers->I = NNN;
+
+			if(debug_flag){
+				printf("Register value after is 0x%X\n",(int)registers->I);
+				printf("mem at the location is:%X\n",memory[registers->I]);
+			}
 
 			break;
 		case 0xB:
@@ -543,7 +568,96 @@ void execute(const unsigned short opcode,_registers *registers){
 			printf("First nibble after: %016b\n",first_nibble);
 			break;
 		case 0xF:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * FX1E: Adds Vx to I.( I += Vx) 
+			 * FX33: Stores BCD of Vx into I. 100's at I,10's at I+1,1's at I +2.
+			 * FX55: Stores vals from V0 to Vx in memory starting at address I. Offset of 
+			 *       I is increased by 1 after a val is written into it but I itself isn't
+			 *       changed.
+			 * FX65: Fills vals from V0 to Vx from memory starting at address I. Offset of 
+			 *       I is increased by 1 after a val is written into it but I itself isn't
+			 *       changed.
+			 */
+
+			if(debug_flag){
+				printf("Welcome to case F\n");
+				printf("Register I's value before is 0x%X\n",(int)registers->I);
+				printf("mem at the location is:%X\n",memory[registers->I]);
+			}
+
+			switch(third_nibble){
+				case 0x1:
+					switch(fourth_nibble){
+						case 0xE:
+							if(debug_flag)
+								printf("Welcome to case FX1E\n");
+
+							registers->I += registers->V[X];
+
+							break;
+					}
+					
+					break;
+				case 0x3:
+					if(debug_flag){
+						printf("Welcome to case FX33\n");
+						_memoryframe(registers->I,registers->I + 2);
+						printf("val at V%d is 0x%X\n",X,registers->V[X]);
+					}
+					
+					for(int i = 0;i < 3;i++)
+						memory[registers->I + i] = 0;
+
+					int num = registers->V[X];
+					int _i = 2;
+
+					while(num != 0){
+						if(debug_flag)
+							printf("Num now is:%d with digit: %d being stored at 0x%X\n",num,num%10,registers-> I + _i);
+						memory[registers->I + _i--] = num%10;
+        					num = num / 10;
+    					}
+
+					if(debug_flag)
+						_memoryframe(registers->I,registers->I + 2);
+					break;
+
+				case 0x5:
+					if(debug_flag){
+						printf("Welcome to case FX55\n");
+						_memoryframe(registers->I,registers->I + X);
+						for(int i = 0;i <= X;i++)
+							printf("val at V%d is %X\n",i,registers->V[i]);
+					}
+
+					for(int i = 0;i <= X;i++)
+						memory[(registers->I) + i] = registers->V[i];
+					
+					if(debug_flag)
+						_memoryframe(registers->I,registers->I + X);
+					break;
+
+				case 0x6:
+					if(debug_flag){
+						printf("Welcome to case FX65\n");
+						_memoryframe(registers->I,registers->I + X);
+						for(int i = 0;i <= X;i++)
+							printf("val at V%d is %X\n",i,registers->V[i]);
+					}
+
+					for(int i = 0;i <= X;i++)
+						registers->V[i] = memory[(registers->I) + i]; 
+					
+					if(debug_flag)
+						_memoryframe(registers->I,registers->I + X);
+					break;
+			}
+
+			if(debug_flag){
+				printf("Register I's value after is 0x%X\n",(int)registers->I);
+				printf("mem at the location is:%X\n",memory[registers->I]);
+			}
+
 			break;
 
 		default:
@@ -602,7 +716,7 @@ bool load_ROM(const char *name){
 	return true;
 }
 
-int main(){
+int main(int argc,char** agrv){
 	_registers registers;
 	registers.PC = 0x200; // starting from the unreserved section
 	_fontset();
@@ -612,9 +726,11 @@ int main(){
 
 	//printf("game: %p\n",g);
 	
-	//_fillopcode();
-	if(!(load_ROM("ROMs/test_opcode_corax_plus.ch8")))
-		return -1;
+	if(argc == 1)
+		_fillopcode();
+	else
+		if(!(load_ROM("ROMs/test_opcode_corax_plus.ch8")))
+			return -1;
 
 	_memoryframe(0x200,0x300);
 

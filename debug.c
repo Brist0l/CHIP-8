@@ -17,22 +17,10 @@ void logmsg(const char* function_name,bool start,bool debug_flag){
 // View the memory locations from a starting address to an ending address
 void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end){
 	logmsg("_memoryframe",true,debug_flag);
-	bool consecutive_zero = false;
-	int w = 0;
 
 	if(debug_flag)
-		for(unsigned _BitInt(12) i = start; i <= end;i++){
-			//if(memory[i] == 0){
-			//	w++;
-			//	if(w == 2)
-			//		consecutive_zero = true;
-			//}
-			//if(!consecutive_zero){
-				printf("val is: %02x at 0x%04x\n",(int) memory[i],(int) i);
-			//	if(w >= 2)
-			//		w = 0;
-			//}
-		}
+		for(unsigned _BitInt(12) i = start; i <= end;i++)
+				printf("val is: 0x%02x at 0x%04x\n",(int) memory[i],(int) i);
 
 	logmsg("_memoryframe",false,debug_flag);
 }
@@ -43,9 +31,9 @@ void _fillopcode(){
 	memory[0x200] = 0x60;
 	memory[0x201] = 0x05;
 	memory[0x202] = 0x61;
-	memory[0x203] = 0x0a;
-	memory[0x204] = 0x80;
-	memory[0x205] = 0x15;
-	memory[0x206] = 0xD1;
-	memory[0x207] = 0x2F;
+	memory[0x203] = 0x45;
+	memory[0x204] = 0xF1;
+	memory[0x205] = 0x33;
+	memory[0x206] = 0xF1;
+	memory[0x207] = 0x55;
 }
