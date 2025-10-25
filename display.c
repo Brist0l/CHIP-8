@@ -22,7 +22,7 @@ bool game_init_sdl(struct Game *g);
 bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
 void game_free(struct Game **game);
-void game_events(struct Game *g);
+uint8_t game_events(struct Game *g);
 void game_draw(struct Game *g);
 bool clear_screen(struct Game *g);
 
@@ -101,35 +101,79 @@ void game_free(struct Game **game){
 	}
 }
 
-void game_events(struct Game *g){
+uint8_t game_events(struct Game *g){
 		while(SDL_PollEvent(&(g->event))){
-			//printf("Polling has started\n");
 			switch (g->event.type){
 				case SDL_EVENT_QUIT:
-					printf("Quit has been pressed\n");
+					//printf("Quit has been pressed\n");
 					g->is_running = false;
 					break;
 				case SDL_EVENT_KEY_DOWN:
-					printf("Key has been pressed\n");
+					//printf("Key has been pressed\n");
 					switch(g->event.key.scancode){
 						case SDL_SCANCODE_ESCAPE:
 							printf("Escape has been pressed\n");
 							g->is_running = false;
 							break;
+						case SDL_SCANCODE_1:
+							printf("1 has been pressed\n");
+							return 0x0;
+						case SDL_SCANCODE_2:
+							printf("2 has been pressed\n");
+							return 0x1;
+						case SDL_SCANCODE_3:
+							printf("3 has been pressed\n");
+							return 0x2;
+						case SDL_SCANCODE_4:
+							printf("4 has been pressed\n");
+							return 0x3;
 						case SDL_SCANCODE_Q:
 							printf("Q has been pressed\n");
-							g->is_running = false;
-							break;
+							return 0x4;
+						case SDL_SCANCODE_W:
+							printf("W has been pressed\n");
+							return 0x5;
+						case SDL_SCANCODE_E:
+							printf("E has been pressed\n");
+							return 0x6;
+						case SDL_SCANCODE_R:
+							printf("R has been pressed\n");
+							return 0x7;
+						case SDL_SCANCODE_A:
+							printf("A has been pressed\n");
+							return 0x8;
+						case SDL_SCANCODE_S:
+							printf("S has been pressed\n");
+							return 0x9;
+						case SDL_SCANCODE_D:
+							printf("D has been pressed\n");
+							return 0xA;
+						case SDL_SCANCODE_F:
+							printf("F has been pressed\n");
+							return 0xB;
+						case SDL_SCANCODE_Z:
+							printf("Z has been pressed\n");
+							return 0xC;
+						case SDL_SCANCODE_X:
+							printf("X has been pressed\n");
+							return 0xD;
+						case SDL_SCANCODE_C:
+							printf("C has been pressed\n");
+							return 0xE;
+						case SDL_SCANCODE_V:
+							printf("V has been pressed\n");
+							return 0xF;
 						default:
-							break;
+							return 16;
 
 					}
 					break;
 				default:
-					break;
+					return 16;
 			}
 		}
 
+		return 16;
 }
 
 void game_draw(struct Game *g){
@@ -192,6 +236,7 @@ void draw(struct Game *g,int x,int y,int data){
 
 	int bit_mask = 1;
 	int j = 0;
+	bool vf_flag = 0;
 
 	for(int _x = x;_x <= x + 8;_x++){
 		printf("Num is : %b\n",data);
@@ -199,6 +244,8 @@ void draw(struct Game *g,int x,int y,int data){
 		printf("=> Putting %d at %dx%d\n",(data >> (7 - j)) & bit_mask,y,_x);
 
 		display[y][_x] ^= ((data >> (7 - j++)) & bit_mask);
+		if(display[y][_x] == 0 && vf_flag == 0)
+			vf_flag = 1;
 	}
 
     	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255); // White colour

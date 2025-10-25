@@ -28,6 +28,8 @@ uint8_t memory[0x1000];
 unsigned char delay_timer;
 unsigned char sound_timer; // It makes the computer "beep" as long as it's above 0
 
+uint8_t key;
+
 struct Game *g = NULL;
 
 void _fontset();
@@ -394,12 +396,18 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
 					}
 						
-					if(registers->V[X] + registers->V[Y] >= 255)
+					// An extra variable for storing the sum is used for an extreme
+					// case like "80F4",if the VF is set before then the sum would
+					// be wrong so hence the result is stored in a different 
+					// variable all together.
+					int sum = registers->V[X] + registers->V[Y];
+
+					registers->V[X] += registers->V[Y];
+
+					if(sum >= 255)
 							registers->V[0xF] = 1;
 					else
 							registers->V[0xF] = 0;
-
-					registers->V[X] += registers->V[Y];
 
 					if(debug_flag){
 						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
@@ -414,13 +422,15 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
 						printf("Register %d's value before is 0x%X\n",Y,registers->V[Y]);
 					}
+					
+					bool _diff = registers->V[X] >= registers->V[Y];
+					
+					registers->V[X] = registers->V[X] - registers->V[Y];
 
-					if(registers->V[X] >= registers->V[Y])
+					if(_diff)
 							registers->V[0xF] = 1;
 					else
 							registers->V[0xF] = 0; // underflow
-					
-					registers->V[X] = registers->V[X] - registers->V[Y];
 
 					if(debug_flag){
 						printf("Register %d's value after is 0x%X(%d)\n",X,registers->V[X],registers->V[X]);
@@ -459,13 +469,15 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("Welcome to case 8XY7\n");
 						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
 					}
+					
+					int diff =registers->V[Y] >= registers->V[X]; 
 
-					if(registers->V[Y] >= registers->V[X])
+					registers->V[X] = registers->V[Y] - registers->V[X];
+
+					if(diff)
 							registers->V[0xF] = 1;
 					else
 							registers->V[0xF] = 0;
-
-					registers->V[X] = registers->V[Y] - registers->V[X];
 
 					if(debug_flag){
 						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
@@ -480,8 +492,14 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("Register %d's value before is 0x%X\n",X,registers->V[X]);
 					}
 					
-					unsigned short first_bit = 0x40;
+					unsigned short first_bit = 0x80;
 					first_bit &= registers->V[X];
+					if(debug_flag)
+						printf("The num:0b%08b\n",first_bit);
+					first_bit >>= 7;
+
+					if(debug_flag)
+						printf("The first bit is:%b from the num:0b%08b\n",first_bit,registers->V[X]);
 
 					registers->V[X] <<= 1;
 
@@ -557,15 +575,52 @@ void execute(const unsigned short opcode,_registers *registers){
 					printf("=>%08b\n",memory[(registers->I) +i]);
 			}
 
-			int x_coor = registers->V[X];
-			int y_coor = registers->V[Y];
-
 			for(int i = 0; i < N;i++)
-				draw(g,x_coor,y_coor + i,memory[(registers->I) + i]);
+				draw(g,registers->V[X],registers->V[Y] + i,memory[(registers->I) + i]);
 
 			break;
 		case 0xE:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * EX9E : Skips the next instruction if the key stored in VX(only consider 
+			 *        the lowest nibble) is pressed (usually the next instruction is a jump 
+			 *        to skip a code block). (if(key == Vx))
+			 * EXA1 : Skips the next instruction if the key stored in VX(only consider 
+			 *        the lowest nibble) is not pressed (usually the next instruction is a 
+			 *        jump to skip a code block). (if(key != Vx))        */
+
+
+			if(debug_flag)
+				printf("Welcome to case E\n");
+			switch(third_nibble){
+				case 0x9:
+					if(debug_flag){
+						printf("Welcome to case EX9E\n");
+						printf("PC's value after is 0x%X\n",(int)registers->PC);
+					}
+
+					if(key == registers->V[X])
+						registers->PC += 2;
+
+					if(debug_flag)
+						printf("PC's value after is 0x%X\n",(int)registers->PC);
+
+					break;
+					
+				case 0xA:
+					if(debug_flag){
+						printf("Welcome to case EXA1\n");
+						printf("PC's value after is 0x%X\n",(int)registers->PC);
+					}
+
+					if(key != registers->V[X])
+						registers->PC += 2;
+
+					if(debug_flag)
+						printf("PC's value after is 0x%X\n",(int)registers->PC);
+
+					break;
+			}
+
 			break;
 		case 0xF:
 			/* Valid instructions:
@@ -670,12 +725,14 @@ void execute(const unsigned short opcode,_registers *registers){
 
 void game_run(struct Game *g , _registers *registers){
 	while(g->is_running){
-		game_events(g);
+		key = 16; //invalid
+		key = game_events(g);
+		printf("=> In game run ,  %X is pressed\n",key);
 		//game_draw(g);
 		execute(fetch(registers),registers);
 		if(registers-> PC == 0x333)
 			g->is_running = false;
-		SDL_Delay(100); // i.e. 60Hz
+		SDL_Delay(1/500); // i.e. 60Hz
 	}
 }
 
@@ -729,7 +786,7 @@ int main(int argc,char** agrv){
 	if(argc == 1)
 		_fillopcode();
 	else
-		if(!(load_ROM("ROMs/test_opcode_corax_plus.ch8")))
+		if(!(load_ROM("ROMs/4_flags.ch8")))
 			return -1;
 
 	_memoryframe(0x200,0x300);

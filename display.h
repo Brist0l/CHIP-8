@@ -16,7 +16,7 @@ bool game_init_sdl(struct Game *g);
 bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
 void game_free(struct Game **game);
-void game_events(struct Game *g);
+uint8_t game_events(struct Game *g);
 void game_draw(struct Game *g);
 void draw(struct Game *g,int x,int y,int data);
 bool clear_screen(struct Game *g);
