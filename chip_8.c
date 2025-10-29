@@ -2,11 +2,14 @@
 #include<stdio.h>
 #include<stdbool.h>
 #include<stdlib.h>
+#include<time.h>
 
 #include"debug.h"
 #include"display.h"
 
 bool debug_flag = true;
+bool do_vx_shift = false; 
+bool do_i_increment = true; 
 
 // CHIP-8 has 16 8-bit registers (V0 - VF)  
 // Registers are just "registers" , there are no "signed" or "unsigned" registers. The signed/unsigned
@@ -22,19 +25,19 @@ typedef struct _registers{
 unsigned short stack[16]; 
 /* 4096 bytes worth of memory . first 512(0x200) bytes are reserved i.e. the opcodes need to be loaded
 from 0x200.*/
-uint8_t memory[0x1000]; 
+extern uint8_t memory[0x1000]; 
 
 // Both the timers need to be decremented by 1 , 60 times per sec (i.e. 60 Hz)
-unsigned char delay_timer;
-unsigned char sound_timer; // It makes the computer "beep" as long as it's above 0
+uint8_t delay_timer;
+uint8_t sound_timer; // It makes the computer "beep" as long as it's above 0
 
-uint8_t key;
+int key;
 
 struct Game *g = NULL;
 
 void _fontset();
 const unsigned short fetch(_registers *registers);
-void game_run(struct Game *g,_registers *registers);
+void game_run(struct Game *g,_registers *registers,float speed);
 
 /* Font:
 It ranged from 0-F and it was stored in the reserved memory (anywhere in it is fine but conventionally it
@@ -195,15 +198,17 @@ void execute(const unsigned short opcode,_registers *registers){
 					if(debug_flag)
 						printf("Welcome to case 00E0\n");
 					clear_screen(g);
+			
 					break;
 
 				case 0xE:
 					if(debug_flag){
-						printf("Welcome to case 00E0\n");
+						printf("Welcome to case 00EE\n");
 						printf("PC's value before is 0x%X\n",(int)registers->PC);
 					}
 
-					registers->PC = stack[--s];	
+					if(s != 0)
+						registers->PC = stack[--s];	
 
 					if(debug_flag)
 						printf("PC's value after is 0x%X\n",(int)registers->PC);
@@ -212,6 +217,7 @@ void execute(const unsigned short opcode,_registers *registers){
 			}
 			
 			break;
+
 		case 0x1:
 			/* Valid instructions:
 			 * 1NNN => Jumps to address NNN */
@@ -359,6 +365,8 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 
 					registers->V[X] |= registers->V[Y];
+					registers->V[0xF] = 0; // All the bitwise operations reset 
+							       // the flag register to 0
 
 					if(debug_flag)
 						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
@@ -371,6 +379,7 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 
 					registers->V[X] &= registers->V[Y];
+					registers->V[0xF] = 0;
 
 					if(debug_flag)
 						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
@@ -384,6 +393,7 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 
 					registers->V[X] ^= registers->V[Y];
+					registers->V[0xF] = 0;
 
 					if(debug_flag)
 						printf("Register %d's value after is 0x%X\n",X,registers->V[X]);
@@ -447,9 +457,15 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 					
 					unsigned short last_bit = 0x1;
-					last_bit &= registers->V[X];
+					
+					if(do_vx_shift){
+						last_bit &= registers->V[X];
+						registers->V[X] = registers->V[X] >>1;
+					}else{
+						last_bit &= registers->V[Y];
+						registers->V[X] = registers->V[Y] >>1;
+					}
 
-					registers->V[X] >>= 1;
 
 					if(last_bit == 1)
 						registers->V[0xF] =1;
@@ -493,15 +509,19 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 					
 					unsigned short first_bit = 0x80;
-					first_bit &= registers->V[X];
-					if(debug_flag)
-						printf("The num:0b%08b\n",first_bit);
-					first_bit >>= 7;
 
 					if(debug_flag)
 						printf("The first bit is:%b from the num:0b%08b\n",first_bit,registers->V[X]);
 
-					registers->V[X] <<= 1;
+					if(do_vx_shift){
+						first_bit &= registers->V[X];
+						registers->V[X] = registers->V[X] << 1;
+					}else{
+						first_bit &= registers->V[Y];
+						registers->V[X] = registers->V[Y] << 1;
+					}
+
+					first_bit >>= 7;
 
 					if(first_bit == 1)
 						registers->V[0xF] =1;
@@ -558,10 +578,38 @@ void execute(const unsigned short opcode,_registers *registers){
 
 			break;
 		case 0xB:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * BNNN : Jumps to the address NNN + V0*/
+
+			if(debug_flag){
+				printf("Welcome to case B\n");
+				printf("Register value before is 0x%X\n",(int)registers->PC);
+				printf("Register value 0 before is 0x%X\n",(int)registers->V[0]);
+			}
+
+			registers->PC = NNN + registers->V[0];
+
+			if(debug_flag){
+				printf("Register value after is 0x%X\n",(int)registers->PC);
+			}
+
 			break;
 		case 0xC:
-			printf("First nibble after: %016b\n",first_nibble);
+			/* Valid instructions:
+			 * CXNN : Sets VX to the result of a bitwise and operation on a random number 
+			 * 	 (Typically: 0 to 255) and NN*/
+
+			if(debug_flag){
+				printf("Welcome to case C\n");
+				printf("Register value %d before is 0x%X\n",X,registers->V[X]);
+			}
+
+			registers->V[X] = (rand()%256) & NN; 
+
+			if(debug_flag){
+				printf("Register value %d after is 0x%X\n",X,registers->V[X]);
+			}
+
 			break;
 		case 0xD:
 			/* Valid instructions:
@@ -574,9 +622,11 @@ void execute(const unsigned short opcode,_registers *registers){
 				for(int i = 0; i < N;i++)
 					printf("=>%08b\n",memory[(registers->I) +i]);
 			}
-
-			for(int i = 0; i < N;i++)
-				draw(g,registers->V[X],registers->V[Y] + i,memory[(registers->I) + i]);
+			
+			int x_coor = registers->V[X];
+			int y_coor = registers->V[Y];
+			printf("Y and X coordinates are %dx%d",y_coor,x_coor);
+			registers->V[0xF] = draw(g,x_coor,y_coor,N,(registers->I));
 
 			break;
 		case 0xE:
@@ -598,7 +648,7 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("PC's value after is 0x%X\n",(int)registers->PC);
 					}
 
-					if(key == registers->V[X])
+					if(g->keypad[registers->V[X]])
 						registers->PC += 2;
 
 					if(debug_flag)
@@ -612,7 +662,7 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("PC's value after is 0x%X\n",(int)registers->PC);
 					}
 
-					if(key != registers->V[X])
+					if(!g->keypad[registers->V[X]])
 						registers->PC += 2;
 
 					if(debug_flag)
@@ -624,7 +674,11 @@ void execute(const unsigned short opcode,_registers *registers){
 			break;
 		case 0xF:
 			/* Valid instructions:
+			 * FX0A: Waits for a key press and then stored in Vx
+			 * FX15: Sets the delay timer to VX.
+			 * FX18: Sets the sound timer to VX.
 			 * FX1E: Adds Vx to I.( I += Vx) 
+			 * FX29: Sets I to the font address for the character stored in Vx
 			 * FX33: Stores BCD of Vx into I. 100's at I,10's at I+1,1's at I +2.
 			 * FX55: Stores vals from V0 to Vx in memory starting at address I. Offset of 
 			 *       I is increased by 1 after a val is written into it but I itself isn't
@@ -641,8 +695,66 @@ void execute(const unsigned short opcode,_registers *registers){
 			}
 
 			switch(third_nibble){
+				case 0x0:
+					switch(fourth_nibble){
+						case 0x7:
+							if(debug_flag){
+								printf("Welcome to case FX07\n");
+								printf("Register %d before has:0x%X\n",X,registers->V[X]);
+								printf("Delay timer val is:%d\n",delay_timer);
+							}
+
+							registers->V[X] = delay_timer; 
+							
+
+							if(debug_flag)
+								printf("Register %d after has:0x%X\n",X,registers->V[X]);
+						
+							break;
+							
+						case 0xA:
+							if(debug_flag){
+								printf("Welcome to case FX0A\n");
+								printf("Register %d before has:0x%X\n",X,registers->V[X]);
+							}
+
+							bool keyPressed = false;
+							for (int i = 0; i < 16; i++) 
+    								if(g->keypad[i]) {
+        								registers->V[X] = i;
+        								keyPressed = true;
+        								break;
+								}
+
+					//repeat until a key is pressed
+							if(!keyPressed){
+								if(debug_flag)
+									printf("Repeating FX0A cyle\n");
+    								registers->PC -= 2;
+							}
+
+							if(debug_flag)
+								printf("Register %d after has:0x%X\n",X,registers->V[X]);
+							break;
+				
+				}
+
 				case 0x1:
 					switch(fourth_nibble){
+						case 0x5:
+							if(debug_flag)
+								printf("Welcome to case FX15\n");
+
+							delay_timer = registers->V[X];
+
+							break;
+						case 0x8:
+							if(debug_flag)
+								printf("Welcome to case FX18\n");
+
+							sound_timer = registers->V[X];
+
+							break;
 						case 0xE:
 							if(debug_flag)
 								printf("Welcome to case FX1E\n");
@@ -653,6 +765,17 @@ void execute(const unsigned short opcode,_registers *registers){
 					}
 					
 					break;
+				case 0x2:
+					if(debug_flag){
+						printf("Welcome to case FX29\n");
+						printf("Register I before: %d\n",(int)registers->I);
+					}
+					registers->I = 0x50 + registers->V[X] * 5;
+					
+					if(debug_flag)
+						printf("Register I after: %d\n",(int)registers->I);
+					break;
+
 				case 0x3:
 					if(debug_flag){
 						printf("Welcome to case FX33\n");
@@ -688,6 +811,9 @@ void execute(const unsigned short opcode,_registers *registers){
 					for(int i = 0;i <= X;i++)
 						memory[(registers->I) + i] = registers->V[i];
 					
+					if(do_i_increment)
+						registers->I = registers->I + X + 1;
+					
 					if(debug_flag)
 						_memoryframe(registers->I,registers->I + X);
 					break;
@@ -702,6 +828,9 @@ void execute(const unsigned short opcode,_registers *registers){
 
 					for(int i = 0;i <= X;i++)
 						registers->V[i] = memory[(registers->I) + i]; 
+
+					if(do_i_increment)
+						registers->I = registers->I + X + 1;
 					
 					if(debug_flag)
 						_memoryframe(registers->I,registers->I + X);
@@ -723,16 +852,27 @@ void execute(const unsigned short opcode,_registers *registers){
 	logmsg("execute",false,debug_flag);
 }
 
-void game_run(struct Game *g , _registers *registers){
+void game_run(struct Game *g , _registers *registers,float speed){
+	Uint32 last = SDL_GetTicks();
 	while(g->is_running){
-		key = 16; //invalid
-		key = game_events(g);
-		printf("=> In game run ,  %X is pressed\n",key);
-		//game_draw(g);
+		game_events(g,&key);
+		if(debug_flag)
+			printf("=> In game run ,  %X is pressed\n",key);
+		
+	//	clear_screen(g);
 		execute(fetch(registers),registers);
-		if(registers-> PC == 0x333)
-			g->is_running = false;
-		SDL_Delay(1/500); // i.e. 60Hz
+
+		Uint32 now = SDL_GetTicks();
+		if((now - last) >= 1000/60){
+			if(delay_timer > 0)
+				delay_timer--;
+
+			if(sound_timer > 0)
+				sound_timer--;
+			last = now;
+		}
+
+		SDL_Delay(speed); // i.e. 60Hz
 	}
 }
 
@@ -774,6 +914,7 @@ bool load_ROM(const char *name){
 }
 
 int main(int argc,char** agrv){
+	srand(time(NULL));
 	_registers registers;
 	registers.PC = 0x200; // starting from the unreserved section
 	_fontset();
@@ -783,17 +924,21 @@ int main(int argc,char** agrv){
 
 	//printf("game: %p\n",g);
 	
-	if(argc == 1)
+	printf("agrv : %s\n",agrv[1]);
+	if(strcmp(agrv[1],"1000") == 0){
+		printf("Filling opcode\n");
 		_fillopcode();
+//		return 0;
+	}
 	else
-		if(!(load_ROM("ROMs/4_flags.ch8")))
+		if(!(load_ROM("ROMs/5-quirks.ch8")))
 			return -1;
 
 	_memoryframe(0x200,0x300);
 
 	if(game_new(&g)){
 		printf("game: %p\n",g);
-		game_run(g,&registers);
+		game_run(g,&registers,atoi(agrv[1]));
 		exit_status = EXIT_SUCCESS;
 	}
 

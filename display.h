@@ -10,15 +10,16 @@ struct Game{
 	SDL_Texture *background;
 	SDL_Event event;
 	bool is_running;
+	bool keypad[16];
 };
 
 bool game_init_sdl(struct Game *g);
 bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
 void game_free(struct Game **game);
-uint8_t game_events(struct Game *g);
+void game_events(struct Game *g,int* key);
 void game_draw(struct Game *g);
-void draw(struct Game *g,int x,int y,int data);
+bool draw(struct Game *g,int x,int y,int N,int data);
 bool clear_screen(struct Game *g);
 
 #endif

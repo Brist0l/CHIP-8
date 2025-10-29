@@ -4,6 +4,8 @@
 #include<stdio.h>
 #include<stdlib.h>
 
+#include"chip_8.h"
+
 #define SDL_FLAGS SDL_INIT_VIDEO
 #define WINDOW_TITLE "Open Window"
 #define WINDOW_WIDTH 64
@@ -16,13 +18,15 @@ struct Game{
 	SDL_Texture *background;
 	SDL_Event event;
 	bool is_running;
+	bool keypad[16];
 };
+bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0}; 
 
 bool game_init_sdl(struct Game *g);
 bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
 void game_free(struct Game **game);
-uint8_t game_events(struct Game *g);
+void game_events(struct Game *g,int* key);
 void game_draw(struct Game *g);
 bool clear_screen(struct Game *g);
 
@@ -101,79 +105,37 @@ void game_free(struct Game **game){
 	}
 }
 
-uint8_t game_events(struct Game *g){
+void game_events(struct Game *g,int* key){
 		while(SDL_PollEvent(&(g->event))){
 			switch (g->event.type){
 				case SDL_EVENT_QUIT:
 					//printf("Quit has been pressed\n");
 					g->is_running = false;
 					break;
+				case SDL_EVENT_KEY_UP:
 				case SDL_EVENT_KEY_DOWN:
-					//printf("Key has been pressed\n");
-					switch(g->event.key.scancode){
-						case SDL_SCANCODE_ESCAPE:
-							printf("Escape has been pressed\n");
-							g->is_running = false;
-							break;
-						case SDL_SCANCODE_1:
-							printf("1 has been pressed\n");
-							return 0x0;
-						case SDL_SCANCODE_2:
-							printf("2 has been pressed\n");
-							return 0x1;
-						case SDL_SCANCODE_3:
-							printf("3 has been pressed\n");
-							return 0x2;
-						case SDL_SCANCODE_4:
-							printf("4 has been pressed\n");
-							return 0x3;
-						case SDL_SCANCODE_Q:
-							printf("Q has been pressed\n");
-							return 0x4;
-						case SDL_SCANCODE_W:
-							printf("W has been pressed\n");
-							return 0x5;
-						case SDL_SCANCODE_E:
-							printf("E has been pressed\n");
-							return 0x6;
-						case SDL_SCANCODE_R:
-							printf("R has been pressed\n");
-							return 0x7;
-						case SDL_SCANCODE_A:
-							printf("A has been pressed\n");
-							return 0x8;
-						case SDL_SCANCODE_S:
-							printf("S has been pressed\n");
-							return 0x9;
-						case SDL_SCANCODE_D:
-							printf("D has been pressed\n");
-							return 0xA;
-						case SDL_SCANCODE_F:
-							printf("F has been pressed\n");
-							return 0xB;
-						case SDL_SCANCODE_Z:
-							printf("Z has been pressed\n");
-							return 0xC;
-						case SDL_SCANCODE_X:
-							printf("X has been pressed\n");
-							return 0xD;
-						case SDL_SCANCODE_C:
-							printf("C has been pressed\n");
-							return 0xE;
-						case SDL_SCANCODE_V:
-							printf("V has been pressed\n");
-							return 0xF;
-						default:
-							return 16;
-
-					}
-					break;
-				default:
-					return 16;
+                			bool isPressed = (g->event.type == SDL_EVENT_KEY_DOWN);
+                			switch (g->event.key.scancode){
+						case SDL_SCANCODE_ESCAPE: g->is_running = false; break;
+                    				case SDL_SCANCODE_X: g->keypad[0x0] = isPressed; break;
+                    				case SDL_SCANCODE_1: g->keypad[0x1] = isPressed; break;
+				                case SDL_SCANCODE_2: g->keypad[0x2] = isPressed; break;
+                    				case SDL_SCANCODE_3: g->keypad[0x3] = isPressed; break;
+                    				case SDL_SCANCODE_Q: g->keypad[0x4] = isPressed; break;
+                    				case SDL_SCANCODE_W: g->keypad[0x5] = isPressed; break;
+                    				case SDL_SCANCODE_E: g->keypad[0x6] = isPressed; break;
+                    				case SDL_SCANCODE_A: g->keypad[0x7] = isPressed; break;
+                    				case SDL_SCANCODE_S: g->keypad[0x8] = isPressed; break;
+                    				case SDL_SCANCODE_D: g->keypad[0x9] = isPressed; break;
+                    				case SDL_SCANCODE_Z: g->keypad[0xA] = isPressed; break;
+                    				case SDL_SCANCODE_C: g->keypad[0xB] = isPressed; break;
+                    				case SDL_SCANCODE_4: g->keypad[0xC] = isPressed; break;
+                    				case SDL_SCANCODE_R: g->keypad[0xD] = isPressed; break;
+                    				case SDL_SCANCODE_F: g->keypad[0xE] = isPressed; break;
+                    				case SDL_SCANCODE_V: g->keypad[0xF] = isPressed; break;
+					} 
 			}
-		}
-
-		return 16;
+	}
 }
 
 void game_draw(struct Game *g){
@@ -213,7 +175,7 @@ void game_draw(struct Game *g){
     SDL_RenderPresent(g->renderer); // update the rendering content
 }
 
-void draw(struct Game *g,int x,int y,int data){
+bool draw(struct Game *g,int x,int y,int N,int data){
 	/*The natural ways of rendering pixels is to first traverse the height and then the width.
 	 *
 	 *			(x)
@@ -231,41 +193,54 @@ void draw(struct Game *g,int x,int y,int data){
 	 * pixels in display[y][x].
 	 */
 
-	static bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0}; 
-    	//display[y][x] = 1;
-
-	int bit_mask = 1;
-	int j = 0;
 	bool vf_flag = 0;
 
-	for(int _x = x;_x <= x + 8;_x++){
-		printf("Num is : %b\n",data);
-		printf("Shifted num is : %08b\n",data >> (7 - j));
-		printf("=> Putting %d at %dx%d\n",(data >> (7 - j)) & bit_mask,y,_x);
+	for(int i = 0; i < N; i++){
+		for(int bit = 0; bit < 8; bit++){
+    			int pixel = (memory[data + i] >> (7 - bit)) & 1;
+			int x_pos,y_pos;
 
-		display[y][_x] ^= ((data >> (7 - j++)) & bit_mask);
-		if(display[y][_x] == 0 && vf_flag == 0)
-			vf_flag = 1;
+			if((x > 63) || (y > 31)){ // If sprite is off the screen then draw the whole sprite
+    				x_pos = (x + bit) % 64;
+    				y_pos = (y % 32) + i; 
+			}
+			else{
+				x_pos = x + bit;
+				y_pos = y + i;
+			}
+
+		printf("Num is : %b\n",data); 
+		printf("Shifted num is : %08b\n",data >> (7 - bit)); 
+		printf("=> Putting %d at %dx%d\n",(data >> (7 - bit)) & 1,y_pos,x_pos);
+		
+		if(pixel && display[y_pos][x_pos])
+            		vf_flag = 1;
+		
+		if(x_pos > 63 || y_pos > 32)
+			printf("Doing nothing\n");
+		else
+        		display[y_pos][x_pos] ^= pixel;
 	}
-
+}
     	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255); // White colour
   	for(int y = 0; y < WINDOW_HEIGHT; y++) {
         	for(int x = 0; x < WINDOW_WIDTH; x++) {
             		if (display[y][x]) {
                 		SDL_FRect rect = {x * SCALE, y * SCALE, SCALE, SCALE};
                 		SDL_RenderFillRect(g->renderer, &rect);
-            }
-        }
-    }
+            		}
+        	}
+    	}
 
-    SDL_RenderPresent(g->renderer); // update the rendering content
+    	SDL_RenderPresent(g->renderer); // update the rendering content
+	return vf_flag;
 }
 
 bool clear_screen(struct Game *g){
-	printf("Entered the clear_screen");
+	memset(display, 0, sizeof(display));
+
     	SDL_SetRenderDrawColor(g->renderer, 0, 0, 0, 255);
     	SDL_RenderClear(g->renderer);
-    	SDL_RenderPresent(g->renderer); // update the rendering content
-	
-	return true;
+    	SDL_RenderPresent(g->renderer);
+    	return true;
 }
