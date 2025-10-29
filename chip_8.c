@@ -651,6 +651,8 @@ void execute(const unsigned short opcode,_registers *registers){
 					if(g->keypad[registers->V[X]])
 						registers->PC += 2;
 
+					g->keypad[registers->V[X]] = false;
+
 					if(debug_flag)
 						printf("PC's value after is 0x%X\n",(int)registers->PC);
 
@@ -662,7 +664,7 @@ void execute(const unsigned short opcode,_registers *registers){
 						printf("PC's value after is 0x%X\n",(int)registers->PC);
 					}
 
-					if(!g->keypad[registers->V[X]])
+					if(!(g->keypad[registers->V[X]]))
 						registers->PC += 2;
 
 					if(debug_flag)
@@ -720,7 +722,7 @@ void execute(const unsigned short opcode,_registers *registers){
 
 							bool keyPressed = false;
 							for (int i = 0; i < 16; i++) 
-    								if(g->keypad[i]) {
+    								if(g->keypad[i]){
         								registers->V[X] = i;
         								keyPressed = true;
         								break;
@@ -732,6 +734,8 @@ void execute(const unsigned short opcode,_registers *registers){
 									printf("Repeating FX0A cyle\n");
     								registers->PC -= 2;
 							}
+							
+							g->keypad[registers->V[X]] = false;
 
 							if(debug_flag)
 								printf("Register %d after has:0x%X\n",X,registers->V[X]);
@@ -872,7 +876,8 @@ void game_run(struct Game *g , _registers *registers,float speed){
 			last = now;
 		}
 
-		SDL_Delay(speed); // i.e. 60Hz
+		SDL_Delay(1/500); // i.e. 60Hz
+		render_screen(g);
 	}
 }
 
@@ -931,7 +936,7 @@ int main(int argc,char** agrv){
 //		return 0;
 	}
 	else
-		if(!(load_ROM("ROMs/5-quirks.ch8")))
+		if(!(load_ROM("ROMs/6-keypad.ch8")))
 			return -1;
 
 	_memoryframe(0x200,0x300);

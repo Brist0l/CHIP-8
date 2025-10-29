@@ -28,6 +28,7 @@ bool game_new(struct Game **game);
 void game_free(struct Game **game);
 void game_events(struct Game *g,int* key);
 void game_draw(struct Game *g);
+void render_screen(struct Game *g);
 bool clear_screen(struct Game *g);
 
 bool game_init_sdl(struct Game *g){
@@ -112,27 +113,28 @@ void game_events(struct Game *g,int* key){
 					//printf("Quit has been pressed\n");
 					g->is_running = false;
 					break;
+
 				case SDL_EVENT_KEY_UP:
 				case SDL_EVENT_KEY_DOWN:
-                			bool isPressed = (g->event.type == SDL_EVENT_KEY_DOWN);
+                			bool isPressed = (g->event.type == (SDL_EVENT_KEY_DOWN));
                 			switch (g->event.key.scancode){
 						case SDL_SCANCODE_ESCAPE: g->is_running = false; break;
-                    				case SDL_SCANCODE_X: g->keypad[0x0] = isPressed; break;
-                    				case SDL_SCANCODE_1: g->keypad[0x1] = isPressed; break;
-				                case SDL_SCANCODE_2: g->keypad[0x2] = isPressed; break;
-                    				case SDL_SCANCODE_3: g->keypad[0x3] = isPressed; break;
-                    				case SDL_SCANCODE_Q: g->keypad[0x4] = isPressed; break;
-                    				case SDL_SCANCODE_W: g->keypad[0x5] = isPressed; break;
-                    				case SDL_SCANCODE_E: g->keypad[0x6] = isPressed; break;
-                    				case SDL_SCANCODE_A: g->keypad[0x7] = isPressed; break;
-                    				case SDL_SCANCODE_S: g->keypad[0x8] = isPressed; break;
-                    				case SDL_SCANCODE_D: g->keypad[0x9] = isPressed; break;
-                    				case SDL_SCANCODE_Z: g->keypad[0xA] = isPressed; break;
-                    				case SDL_SCANCODE_C: g->keypad[0xB] = isPressed; break;
-                    				case SDL_SCANCODE_4: g->keypad[0xC] = isPressed; break;
-                    				case SDL_SCANCODE_R: g->keypad[0xD] = isPressed; break;
-                    				case SDL_SCANCODE_F: g->keypad[0xE] = isPressed; break;
-                    				case SDL_SCANCODE_V: g->keypad[0xF] = isPressed; break;
+                    				case SDL_SCANCODE_X: g->keypad[0x0] = isPressed;break;
+                    				case SDL_SCANCODE_1: g->keypad[0x1] = isPressed;break;
+				                case SDL_SCANCODE_2: g->keypad[0x2] = isPressed;break;
+                    				case SDL_SCANCODE_3: g->keypad[0x3] = isPressed;break;
+                    				case SDL_SCANCODE_Q: g->keypad[0x4] = isPressed;break;
+                    				case SDL_SCANCODE_W: g->keypad[0x5] = isPressed;break;
+                    				case SDL_SCANCODE_E: g->keypad[0x6] = isPressed;break;
+                    				case SDL_SCANCODE_A: g->keypad[0x7] = isPressed;break;
+                    				case SDL_SCANCODE_S: g->keypad[0x8] = isPressed;break;
+                    				case SDL_SCANCODE_D: g->keypad[0x9] = isPressed;break;
+                    				case SDL_SCANCODE_Z: g->keypad[0xA] = isPressed;break;
+                    				case SDL_SCANCODE_C: g->keypad[0xB] = isPressed;break;
+                    				case SDL_SCANCODE_4: g->keypad[0xC] = isPressed;break;
+                    				case SDL_SCANCODE_R: g->keypad[0xD] = isPressed;break;
+                    				case SDL_SCANCODE_F: g->keypad[0xE] = isPressed;break;
+                    				case SDL_SCANCODE_V: g->keypad[0xF] = isPressed;break;
 					} 
 			}
 	}
@@ -195,33 +197,32 @@ bool draw(struct Game *g,int x,int y,int N,int data){
 
 	bool vf_flag = 0;
 
+	x %= 64;
+	y %= 32;
+
 	for(int i = 0; i < N; i++){
 		for(int bit = 0; bit < 8; bit++){
     			int pixel = (memory[data + i] >> (7 - bit)) & 1;
-			int x_pos,y_pos;
+			int x_pos = x + bit;
+			int y_pos = y + i;
 
-			if((x > 63) || (y > 31)){ // If sprite is off the screen then draw the whole sprite
-    				x_pos = (x + bit) % 64;
-    				y_pos = (y % 32) + i; 
-			}
-			else{
-				x_pos = x + bit;
-				y_pos = y + i;
-			}
-
-		printf("Num is : %b\n",data); 
-		printf("Shifted num is : %08b\n",data >> (7 - bit)); 
-		printf("=> Putting %d at %dx%d\n",(data >> (7 - bit)) & 1,y_pos,x_pos);
+			printf("Num is : %b\n",data); 
+			printf("Shifted num is : %08b\n",data >> (7 - bit)); 
+			printf("=> Putting %d at %dx%d\n",(data >> (7 - bit)) & 1,y_pos,x_pos);
 		
-		if(pixel && display[y_pos][x_pos])
-            		vf_flag = 1;
+			if(pixel && display[y_pos][x_pos])
+            			vf_flag = 1;
 		
-		if(x_pos > 63 || y_pos > 32)
-			printf("Doing nothing\n");
-		else
         		display[y_pos][x_pos] ^= pixel;
 	}
 }
+	return vf_flag;
+}
+
+void render_screen(struct Game *g){
+    	SDL_SetRenderDrawColor(g->renderer, 0, 0, 0, 255);
+    	SDL_RenderClear(g->renderer);
+
     	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255); // White colour
   	for(int y = 0; y < WINDOW_HEIGHT; y++) {
         	for(int x = 0; x < WINDOW_WIDTH; x++) {
@@ -233,7 +234,6 @@ bool draw(struct Game *g,int x,int y,int N,int data){
     	}
 
     	SDL_RenderPresent(g->renderer); // update the rendering content
-	return vf_flag;
 }
 
 bool clear_screen(struct Game *g){

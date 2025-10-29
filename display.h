@@ -20,6 +20,7 @@ void game_free(struct Game **game);
 void game_events(struct Game *g,int* key);
 void game_draw(struct Game *g);
 bool draw(struct Game *g,int x,int y,int N,int data);
+void render_screen(struct Game *g);
 bool clear_screen(struct Game *g);
 
 #endif
