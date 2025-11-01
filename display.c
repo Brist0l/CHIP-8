@@ -23,43 +23,35 @@ struct Game{
 bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0}; 
 
 bool game_init_sdl(struct Game *g);
-bool game_load_media(struct Game *g);
 bool game_new(struct Game **game);
 void game_free(struct Game **game);
 void game_events(struct Game *g,int* key);
-void game_draw(struct Game *g);
+bool draw(struct Game *g,int x,int y,int N,int data);
 void render_screen(struct Game *g);
 bool clear_screen(struct Game *g);
 
 bool game_init_sdl(struct Game *g){
 	//printf("%d\n",SDL_FLAGS);
 	if(!SDL_Init(SDL_FLAGS)){ // Inits the SDL system as a whole
-		fprintf(stderr,"Error initialising SDL3: %s\n",SDL_GetError());
+		if(debug_flag)
+			fprintf(stderr,"Error initialising SDL3: %s\n",SDL_GetError());
 		return false;
 	}
 
 	g->window = SDL_CreateWindow(WINDOW_TITLE,WINDOW_WIDTH * SCALE,WINDOW_HEIGHT * SCALE,0);
 	if(!g->window){
-		fprintf(stderr,"Error Creating window: %s\n",SDL_GetError());
+		if(debug_flag)
+			fprintf(stderr,"Error Creating window: %s\n",SDL_GetError());
 		return false;
 	}
 
 	g->renderer = SDL_CreateRenderer(g->window,NULL);
 	if(!g->renderer){
-		fprintf(stderr,"Error Creating renderer: %s\n",SDL_GetError());
+		if(debug_flag)
+			fprintf(stderr,"Error Creating renderer: %s\n",SDL_GetError());
 		return false;
 	}
 
-	return true;
-}
-
-bool game_load_media(struct Game *g){
-
-	if(!g->background){
-		fprintf(stderr,"Error Creating renderer: %s\n",SDL_GetError());
-		return false;
-	}
-	
 	return true;
 }
 
@@ -67,14 +59,16 @@ bool game_new(struct Game **game){
 	*game = calloc(1,sizeof(struct Game));
 
 	if(*game == NULL){
-		fprintf(stderr,"Error while allocating memory\n");
+		if(debug_flag)
+			fprintf(stderr,"Error while allocating memory\n");
 		return false;
 	}
 
 	struct Game *g = *game; //Just to not modify the code beneath this
 
 	if(!game_init_sdl(g)){
-		fprintf(stderr,"Failed to init SDL: %s\n",SDL_GetError());
+		if(debug_flag)
+			fprintf(stderr,"Failed to init SDL: %s\n",SDL_GetError());
 		return false;
 	}
 	g->is_running = true;
@@ -94,15 +88,14 @@ void game_free(struct Game **game){
 			g->window = NULL;
 		}
 
-	
-	
 		SDL_Quit();
 
 		free(g);
 		g = NULL;
 		*game = NULL;
-	
-		printf("Quiting SDL\n");
+		
+		if(debug_flag)
+			printf("Quiting SDL\n");
 	}
 }
 
@@ -140,43 +133,6 @@ void game_events(struct Game *g,int* key){
 	}
 }
 
-void game_draw(struct Game *g){
-	bool display[WINDOW_HEIGHT][WINDOW_WIDTH] = {0};
-    //	display[5][5] = 1; // Just one pixel to test
-	int draw[5] = {0xF0,0x80,0xF0,0x80,0x80};
-
-	int bit_mask = 1;
-	int num_count = 0;
-
-	for(int i = 0;i < 5;i++){
-		//printf("Incremented\n");
-		for(int j = 0;j < 8;j++){
-			//printf("Num is : %b\n",draw[num_count]);
-			//printf("Shifted num is : %08b\n",draw[num_count] >> (7 - j));
-			//printf("=> Putting %d at %dx%d\n",(draw[num_count] >> (7 - j)) & bit_mask,i,j);
-			
-			display[i][j] = (draw[num_count] >> (7 - j)) & bit_mask;
-
-		}
-		num_count++;
-	}	
-	
-    	SDL_SetRenderDrawColor(g->renderer, 0, 0, 0, 255);
-    	SDL_RenderClear(g->renderer); // clear the current rendering target with the drawing colour
-
-    	SDL_SetRenderDrawColor(g->renderer, 255, 255, 255, 255);
-  	for(int y = 0; y < WINDOW_HEIGHT; y++) {
-        	for(int x = 0; x < WINDOW_WIDTH; x++) {
-            		if (display[y][x]) {
-                		SDL_FRect rect = {x * SCALE, y * SCALE, SCALE, SCALE};
-                		SDL_RenderFillRect(g->renderer, &rect);
-            }
-        }
-    }
-
-    SDL_RenderPresent(g->renderer); // update the rendering content
-}
-
 bool draw(struct Game *g,int x,int y,int N,int data){
 	/*The natural ways of rendering pixels is to first traverse the height and then the width.
 	 *
@@ -205,10 +161,12 @@ bool draw(struct Game *g,int x,int y,int N,int data){
     			int pixel = (memory[data + i] >> (7 - bit)) & 1;
 			int x_pos = x + bit;
 			int y_pos = y + i;
-
-			printf("Num is : %b\n",data); 
-			printf("Shifted num is : %08b\n",data >> (7 - bit)); 
-			printf("=> Putting %d at %dx%d\n",(data >> (7 - bit)) & 1,y_pos,x_pos);
+			
+			if(debug_flag){
+				printf("Num is : %b\n",data); 
+				printf("Shifted num is : %08b\n",data >> (7 - bit)); 
+				printf("=> Putting %d at %dx%d\n",(data >> (7 - bit)) & 1,y_pos,x_pos);
+			}
 		
 			if(pixel && display[y_pos][x_pos])
             			vf_flag = 1;

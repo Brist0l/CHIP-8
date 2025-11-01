@@ -7,7 +7,7 @@
 #include"debug.h"
 #include"display.h"
 
-bool debug_flag = true;
+extern bool debug_flag;
 bool do_vx_shift = false; 
 bool do_i_increment = true; 
 
@@ -37,7 +37,10 @@ struct Game *g = NULL;
 
 void _fontset();
 const unsigned short fetch(_registers *registers);
+void execute(const unsigned short opcode,_registers *registers);
 void game_run(struct Game *g,_registers *registers,float speed);
+void display_ROM(FILE* rom);
+bool load_ROM(const char *name);
 
 /* Font:
 It ranged from 0-F and it was stored in the reserved memory (anywhere in it is fine but conventionally it
@@ -180,9 +183,9 @@ void execute(const unsigned short opcode,_registers *registers){
 		printf("Second nibble after: %016b(%X)\n",second_nibble,second_nibble);
 		printf("Third nibble after: %016b(%X)\n",third_nibble,third_nibble);
 		printf("Fourth nibble after: %016b(%X)\n",fourth_nibble,fourth_nibble);
+		printf("The addr of g is %p and is_runing %d\n",g,g->is_running);
 	}
 
-	printf("The addr of g is %p and is_runing %d\n",g,g->is_running);
 
 	switch(first_nibble){
 		case 0x0:
@@ -625,7 +628,8 @@ void execute(const unsigned short opcode,_registers *registers){
 			
 			int x_coor = registers->V[X];
 			int y_coor = registers->V[Y];
-			printf("Y and X coordinates are %dx%d",y_coor,x_coor);
+			if(debug_flag)
+				printf("Y and X coordinates are %dx%d\n",y_coor,x_coor);
 			registers->V[0xF] = draw(g,x_coor,y_coor,N,(registers->I));
 
 			break;
@@ -876,7 +880,7 @@ void game_run(struct Game *g , _registers *registers,float speed){
 			last = now;
 		}
 
-		SDL_Delay(1/500); // i.e. 60Hz
+		SDL_Delay(1/60); // i.e. 60Hz
 		render_screen(g);
 	}
 }
@@ -905,11 +909,13 @@ bool load_ROM(const char *name){
 
 	rom = fopen(name,"rb");
 	if(rom == NULL){
-		fprintf(stderr,"Couldn't read %s\n",name);
+		if(debug_flag)
+			fprintf(stderr,"Couldn't read %s\n",name);
 		return false;
 	}
 	
-	display_ROM(rom);
+	if(debug_flag)
+		display_ROM(rom);
 
 	while((data = fgetc(rom)) != EOF)
 		memory[i++] = (unsigned char) data;
@@ -919,6 +925,7 @@ bool load_ROM(const char *name){
 }
 
 int main(int argc,char** agrv){
+	debug_flag = true;
 	srand(time(NULL));
 	_registers registers;
 	registers.PC = 0x200; // starting from the unreserved section
@@ -929,20 +936,23 @@ int main(int argc,char** agrv){
 
 	//printf("game: %p\n",g);
 	
-	printf("agrv : %s\n",agrv[1]);
+	if(debug_flag)
+		printf("agrv : %s\n",agrv[1]);
+
 	if(strcmp(agrv[1],"1000") == 0){
 		printf("Filling opcode\n");
 		_fillopcode();
 //		return 0;
 	}
 	else
-		if(!(load_ROM("ROMs/6-keypad.ch8")))
+		if(!(load_ROM("ROMs/TETRIS")))
 			return -1;
 
 	_memoryframe(0x200,0x300);
 
 	if(game_new(&g)){
-		printf("game: %p\n",g);
+		if(debug_flag)
+			printf("game: %p\n",g);
 		game_run(g,&registers,atoi(agrv[1]));
 		exit_status = EXIT_SUCCESS;
 	}

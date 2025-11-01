@@ -4,6 +4,10 @@
 extern bool debug_flag;
 extern unsigned char memory[0x1000];
 
+void logmsg(const char* function_name,bool start,bool debug_flag);
+void _memoryframe(unsigned _BitInt(12) start,unsigned _BitInt(12) end);
+void _fillopcode();
+
 void logmsg(const char* function_name,bool start,bool debug_flag){
 	if(!debug_flag)
 		return;
